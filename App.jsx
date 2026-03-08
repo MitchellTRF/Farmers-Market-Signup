@@ -1200,9 +1200,11 @@ function VendorPanel({ data, reload }) {
                     <p className="font-bold text-[#2a2010]">{formatDate(m.date)}</p>
                     <p className="text-xs text-[#8a7a60]">{m.location}</p>
                     <div className="flex flex-wrap items-center gap-1.5 mt-2">
-                      <Badge color={full ? "red" : "green"}>
-                        {confirmed.length}/{m.capacity} spots
-                      </Badge>
+                    {!onWaitlist && (
+                    <Badge color={full ? "red" : "green"}>
+                     {confirmed.length}/{m.capacity} spots
+                     </Badge>
+                   )}                      
                       {!full && !confirmedMe && spotsLeft <= 3 && (
                         <Badge color="amber">Only {spotsLeft} left!</Badge>
                       )}
