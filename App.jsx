@@ -455,10 +455,11 @@ function AdminPanel({ data, reload, onLogout }) {
             <p className="text-xs text-[#8a7a60]">{m.location}</p>
           </div>
           <div className="flex items-center gap-2">
-            {!archived && (
-              {!onWaitlist && <Badge color={full ? "red" : "green"}>
-  {confirmed.length}/{m.capacity} spots
-</Badge>}
+          {!archived && !onWaitlist && (
+  <Badge color={full ? "red" : "green"}>
+    {confirmed.length}/{m.capacity} spots
+  </Badge>
+)}
             )}
             {!archived && waitlist.length > 0 && (
               <Badge color="amber">{waitlist.length} waiting</Badge>
