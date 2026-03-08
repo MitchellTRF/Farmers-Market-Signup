@@ -1221,7 +1221,7 @@ function VendorPanel({ data, reload }) {
                         disabled={atLimit}
                         loading={saving}
                       >
-                        {full || typeCapHit ? "Join Waitlist" : "Sign Up"}
+                        full || typeCapHit || atSeasonalLimit ? "Join Waitlist" : "Sign Up"
                       </Btn>
                     )}
                     {(confirmedMe || onWaitlist) && (
