@@ -1219,7 +1219,7 @@ function VendorPanel({ data, reload }) {
                       <Btn
                         variant={full || typeCapHit ? "secondary" : "primary"}
                         onClick={() => handleSignUp(m)}
-                        disabled={atLimit}
+                        
                         loading={saving}
                       >
                         {full || typeCapHit || atSeasonalLimit ? "Join Waitlist" : "Sign Up"}
