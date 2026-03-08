@@ -455,7 +455,7 @@ function AdminPanel({ data, reload, onLogout }) {
             <p className="text-xs text-[#8a7a60]">{m.location}</p>
           </div>
           <div className="flex items-center gap-2">
-          {!archived && !onWaitlist && (
+          {!archived && (
   <Badge color={full ? "red" : "green"}>
     {confirmed.length}/{m.capacity} spots
   </Badge>
