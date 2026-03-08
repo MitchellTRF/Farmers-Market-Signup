@@ -1165,11 +1165,7 @@ function VendorPanel({ data, reload }) {
             </div>
           )}
         </div>
-        {atLimit && (
-          <div className="mt-3 bg-[#7a1a1a] rounded-lg px-3 py-1.5 text-sm font-medium">
-            ⚠️ You've reached your seasonal market limit.
-          </div>
-        )}
+        
         <button
           onClick={() => {
             setSession(null); setStep("login");
