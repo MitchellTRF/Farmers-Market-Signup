@@ -456,9 +456,9 @@ function AdminPanel({ data, reload, onLogout }) {
           </div>
           <div className="flex items-center gap-2">
             {!archived && (
-              <Badge color={full ? "red" : "green"}>
-                {confirmed.length}/{m.capacity}
-              </Badge>
+              {!onWaitlist && <Badge color={full ? "red" : "green"}>
+  {confirmed.length}/{m.capacity} spots
+</Badge>}
             )}
             {!archived && waitlist.length > 0 && (
               <Badge color="amber">{waitlist.length} waiting</Badge>
@@ -1211,7 +1211,7 @@ function VendorPanel({ data, reload }) {
                         </Badge>
                       )}
                       {confirmedMe && <Badge color="green">✓ Confirmed</Badge>}
-                      {onWaitlist && <Badge color="amber">Waitlist #{waitlistPos}</Badge>}
+                      {onWaitlist && <Badge color="amber">Waitlist Joined</Badge>}
                     </div>
                   </div>
                   <div className="shrink-0">
