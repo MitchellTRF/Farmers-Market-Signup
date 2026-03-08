@@ -940,21 +940,14 @@ function VendorPanel({ data, reload }) {
         setMsg({ type: "error", text: "You're already on the waitlist for this market." });
         return;
       }
-      if (session.limitEntry) {
-        if (getSignupCount(session.email) >= session.limitEntry.max_markets) {
-          setMsg({
-            type: "error",
-            text: `You've reached your seasonal limit of ${session.limitEntry.max_markets} markets. Contact the market organizer with any questions.`,
-          });
-          return;
-        }
-      }
+      const atSeasonalLimit = session.limitEntry &&
+  getSignupCount(session.email) >= session.limitEntry.max_markets;
 
       const confirmed = (market.signups || []).filter((s) => s.status === "confirmed");
       const isFull = confirmed.length >= market.capacity;
       const typeCap = data.typeLimits[session.vendorType];
       const typeCapHit = typeCap && getTypeConfirmedCount(market, session.vendorType) >= typeCap;
-      const goWaitlist = isFull || typeCapHit;
+      const goWaitlist = isFull || typeCapHit || atSeasonalLimit;
 
       const { error } = await supabase.from("signups").insert({
         market_id: market.id,
