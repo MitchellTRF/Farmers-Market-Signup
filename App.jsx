@@ -1200,7 +1200,7 @@ function VendorPanel({ data, reload }) {
                     <p className="font-bold text-[#2a2010]">{formatDate(m.date)}</p>
                     <p className="text-xs text-[#8a7a60]">{m.location}</p>
                     <div className="flex flex-wrap items-center gap-1.5 mt-2">
-                    {!onWaitlist && !atSeasonalLimit && (
+                    {!onWaitlist && !session.limitEntry && (
                     <Badge color={full ? "red" : "green"}>
                      {confirmed.length}/{m.capacity} spots
                      </Badge>
