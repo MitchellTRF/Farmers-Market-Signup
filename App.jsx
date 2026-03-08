@@ -5,7 +5,6 @@ import { supabase } from "./supabase";
 const LOGO_URL =
   "https://images.squarespace-cdn.com/content/v1/65a5463e9d143d289eafca2a/21ac092d-9476-4893-a932-b12c33da37e1/mcfm.png";
 
-// Change this to whatever password you want for the admin panel
 const ADMIN_PASSWORD = "mcfm2026";
 
 const VENDOR_TYPES = [
@@ -33,6 +32,84 @@ function formatDate(s) {
     day: "numeric",
     year: "numeric",
   });
+}
+
+// ─── PRINT REPORT ────────────────────────────────────────────────────────────
+function printMarketReport(market) {
+  const confirmed = (market.signups || [])
+    .filter((s) => s.status === "confirmed")
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  const rows = confirmed.map((v, i) => `
+    <tr>
+      <td>${i + 1}</td>
+      <td><strong>${v.name}</strong></td>
+      <td>${v.owner_name || "—"}</td>
+      <td>${v.phone || "—"}</td>
+      <td>${v.vendor_type}</td>
+      <td class="check"></td>
+    </tr>
+  `).join("");
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Market Report – ${formatDate(market.date)}</title>
+      <style>
+        body { font-family: Georgia, serif; margin: 40px; color: #1a1a0a; }
+        .header { text-align: center; border-bottom: 3px solid #3a6b35; padding-bottom: 16px; margin-bottom: 24px; }
+        .header h1 { font-size: 22px; margin: 0 0 4px; color: #3a6b35; }
+        .header p { margin: 2px 0; font-size: 13px; color: #5a5040; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th { background: #3a6b35; color: white; padding: 8px 10px; text-align: left; }
+        td { padding: 8px 10px; border-bottom: 1px solid #d8c898; vertical-align: top; }
+        tr:nth-child(even) td { background: #faf5e8; }
+        td.check { width: 50px; border: 1px solid #888; border-radius: 3px; background: white; }
+        .footer { margin-top: 24px; font-size: 11px; color: #8a7a60; text-align: center; }
+        .summary { margin-bottom: 16px; font-size: 13px; }
+        .summary span { display: inline-block; margin-right: 20px; }
+        @media print {
+          body { margin: 20px; }
+          .no-print { display: none; }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <h1>Mason City Farmers Market</h1>
+        <p><strong>${formatDate(market.date)}</strong> &nbsp;·&nbsp; ${market.location}</p>
+        <p>Vendor Check-In Sheet</p>
+      </div>
+      <div class="summary">
+        <span>📋 <strong>${confirmed.length}</strong> confirmed vendors</span>
+        <span>🏷 Capacity: <strong>${market.capacity}</strong></span>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Business Name</th>
+            <th>Owner Name</th>
+            <th>Phone</th>
+            <th>Vendor Type</th>
+            <th>✓ Here</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <div class="footer">
+        Printed ${new Date().toLocaleDateString()} &nbsp;·&nbsp; Mason City Farmers Market &nbsp;·&nbsp; PO Box 16, Mason City, IA 50402
+      </div>
+    </body>
+    </html>
+  `;
+
+  const w = window.open("", "_blank");
+  w.document.write(html);
+  w.document.close();
+  w.focus();
+  setTimeout(() => w.print(), 500);
 }
 
 // ─── DATA LAYER ──────────────────────────────────────────────────────────────
@@ -127,6 +204,7 @@ function Btn({ children, variant = "primary", className = "", loading: isLoading
     danger: "bg-[#fde8e8] text-[#a03030] hover:bg-[#fad0d0]",
     ghost: "bg-white border border-[#c8b98a] text-[#5a5040] hover:bg-[#faf5e8]",
     archive: "bg-[#e8dfc8] text-[#5a5040] hover:bg-[#d8cfa8]",
+    print: "bg-[#1a3a5a] text-white hover:bg-[#0f2840] shadow-sm",
   };
   return (
     <button
@@ -247,7 +325,6 @@ function AdminPanel({ data, reload, onLogout }) {
     setTypeCapEdits(init);
   }, [data.typeLimits]);
 
-  // Wrapper: set saving, run, reload
   const run = async (fn) => {
     setSaving(true);
     try { await fn(); await reload(); } catch (e) { console.error(e); }
@@ -339,11 +416,10 @@ function AdminPanel({ data, reload, onLogout }) {
   // ── Notifications ──
   const clearNotifications = () =>
     run(async () => {
-      // Delete all notifications (Supabase requires a filter, use neq on impossible value)
       await supabase.from("notifications").delete().gte("created_at", "2000-01-01");
     });
 
-  // Signup counts per email (for vendor limits dashboard)
+  // Signup counts per email
   const signupsByEmail = {};
   data.markets.forEach((m) =>
     (m.signups || [])
@@ -429,21 +505,28 @@ function AdminPanel({ data, reload, onLogout }) {
                   {confirmed.map((v) => (
                     <div
                       key={v.id}
-                      className="flex items-center justify-between bg-white border border-[#e8dfc8] rounded-lg px-3 py-1.5"
+                      className="bg-white border border-[#e8dfc8] rounded-lg px-3 py-2"
                     >
-                      <div>
-                        <span className="text-sm font-medium text-[#2a2010]">{v.name}</span>
-                        <span className="text-xs text-[#8a7a60] ml-2">{v.vendor_type}</span>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-bold text-[#2a2010]">{v.name}</p>
+                          <p className="text-xs text-[#5a5040]">
+                            {v.owner_name && <span>{v.owner_name} · </span>}
+                            {v.phone && <span>{v.phone} · </span>}
+                            <span className="text-[#8a7a60]">{v.vendor_type}</span>
+                          </p>
+                          <p className="text-xs text-[#8a7a60]">{v.email}</p>
+                        </div>
+                        {!archived && (
+                          <button
+                            onClick={() => removeSignup(v.id)}
+                            disabled={saving}
+                            className="text-xs text-[#a03030] hover:underline shrink-0 mt-0.5"
+                          >
+                            Remove
+                          </button>
+                        )}
                       </div>
-                      {!archived && (
-                        <button
-                          onClick={() => removeSignup(v.id)}
-                          disabled={saving}
-                          className="text-xs text-[#a03030] hover:underline ml-2 shrink-0"
-                        >
-                          Remove
-                        </button>
-                      )}
                     </div>
                   ))}
                 </div>
@@ -460,11 +543,19 @@ function AdminPanel({ data, reload, onLogout }) {
                   {waitlist.map((v, i) => (
                     <div
                       key={v.id}
-                      className="flex items-center bg-[#fffbec] border border-[#f0d888] rounded-lg px-3 py-1.5"
+                      className="bg-[#fffbec] border border-[#f0d888] rounded-lg px-3 py-2"
                     >
-                      <span className="text-[#c17f24] font-bold text-sm mr-2">#{i + 1}</span>
-                      <span className="text-sm font-medium text-[#2a2010]">{v.name}</span>
-                      <span className="text-xs text-[#8a7a60] ml-2">{v.vendor_type}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[#c17f24] font-bold text-sm shrink-0">#{i + 1}</span>
+                        <div>
+                          <p className="text-sm font-medium text-[#2a2010]">{v.name}</p>
+                          <p className="text-xs text-[#8a7a60]">
+                            {v.owner_name && <span>{v.owner_name} · </span>}
+                            {v.phone && <span>{v.phone} · </span>}
+                            {v.vendor_type}
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -482,7 +573,12 @@ function AdminPanel({ data, reload, onLogout }) {
             )}
 
             {/* Actions */}
-            <div className="flex gap-2 pt-2 border-t border-[#e8dfc8]">
+            <div className="flex flex-wrap gap-2 pt-2 border-t border-[#e8dfc8]">
+              {confirmed.length > 0 && (
+                <Btn variant="print" onClick={() => printMarketReport(m)}>
+                  🖨 Print Check-In Sheet
+                </Btn>
+              )}
               {!archived && (
                 <Btn variant="archive" disabled={saving} onClick={() => setArchived(m.id, true)}>
                   Archive
@@ -632,7 +728,7 @@ function AdminPanel({ data, reload, onLogout }) {
         <div className="space-y-4">
           <InfoBox>
             <strong>Targeted limits only.</strong> Vendors matched by email get a personal seasonal
-            cap. Everyone else books freely — no friction for anyone else.
+            cap. Everyone else books freely.
           </InfoBox>
           <Card className="p-4">
             <h3 className="font-display text-lg text-[#3a6b35] mb-3">Add Restricted Vendor</h3>
@@ -755,6 +851,8 @@ function VendorPanel({ data, reload }) {
   const [step, setStep] = useState("login");
   const [returning, setReturning] = useState(false);
   const [formName, setFormName] = useState("");
+  const [formOwnerName, setFormOwnerName] = useState("");
+  const [formPhone, setFormPhone] = useState("");
   const [formEmail, setFormEmail] = useState("");
   const [formType, setFormType] = useState("");
   const [formOther, setFormOther] = useState("");
@@ -792,7 +890,14 @@ function VendorPanel({ data, reload }) {
     if (!formName.trim() || !formEmail.trim() || !formType) return;
     const email = formEmail.trim().toLowerCase();
     const resolvedType = formType === "Other" ? formOther.trim() || "Other" : formType;
-    setSession({ name: formName.trim(), email, vendorType: resolvedType, limitEntry: getLimitEntry(email) });
+    setSession({
+      name: formName.trim(),
+      ownerName: formOwnerName.trim(),
+      phone: formPhone.trim(),
+      email,
+      vendorType: resolvedType,
+      limitEntry: getLimitEntry(email),
+    });
     setMsg(null);
     setStep("markets");
   };
@@ -800,7 +905,6 @@ function VendorPanel({ data, reload }) {
   const lookupReturning = () => {
     const email = lookupEmail.trim().toLowerCase();
     if (!email) return;
-    // Search all upcoming markets for this email
     let found = null;
     for (const m of data.markets) {
       const v = (m.signups || []).find((x) => x.email === email);
@@ -810,7 +914,14 @@ function VendorPanel({ data, reload }) {
       setLookupErr("No sign-ups found for that email. Please register as a new vendor.");
       return;
     }
-    setSession({ name: found.name, email, vendorType: found.vendor_type, limitEntry: getLimitEntry(email) });
+    setSession({
+      name: found.name,
+      ownerName: found.owner_name || "",
+      phone: found.phone || "",
+      email,
+      vendorType: found.vendor_type,
+      limitEntry: getLimitEntry(email),
+    });
     setMsg({ type: "info", text: `Welcome back, ${found.name}! Here are your upcoming markets.` });
     setLookupErr("");
     setStep("markets");
@@ -848,6 +959,8 @@ function VendorPanel({ data, reload }) {
       const { error } = await supabase.from("signups").insert({
         market_id: market.id,
         name: session.name,
+        owner_name: session.ownerName || "",
+        phone: session.phone || "",
         email: session.email,
         vendor_type: session.vendorType,
         status: goWaitlist ? "waitlist" : "confirmed",
@@ -879,7 +992,6 @@ function VendorPanel({ data, reload }) {
         .eq("market_id", market.id)
         .eq("email", session.email);
 
-      // If they were confirmed, try to auto-promote the next eligible waitlist person
       if (wasConfirmed) {
         const { data: freshSignups } = await supabase
           .from("signups")
@@ -898,10 +1010,7 @@ function VendorPanel({ data, reload }) {
             return freshConfirmed.filter((c) => c.vendor_type === v.vendor_type).length < cap;
           });
           if (eligible) {
-            await supabase
-              .from("signups")
-              .update({ status: "confirmed" })
-              .eq("id", eligible.id);
+            await supabase.from("signups").update({ status: "confirmed" }).eq("id", eligible.id);
             await logNotification(
               `🎉 ${eligible.name} promoted to confirmed for ${formatDate(market.date)}.`
             );
@@ -952,6 +1061,8 @@ function VendorPanel({ data, reload }) {
             </p>
             <div className="space-y-4">
               <TextInput label="Business / Farm Name" type="text" placeholder="Your business name" value={formName} onChange={(e) => setFormName(e.target.value)} />
+              <TextInput label="Owner / Contact Name" type="text" placeholder="Your name" value={formOwnerName} onChange={(e) => setFormOwnerName(e.target.value)} />
+              <TextInput label="Phone Number" type="tel" placeholder="(555) 555-5555" value={formPhone} onChange={(e) => setFormPhone(e.target.value)} />
               <TextInput label="Email Address" type="email" placeholder="your@email.com" value={formEmail} onChange={(e) => setFormEmail(e.target.value)} />
               <div>
                 <FieldLabel>Vendor Type — I am applying to sell the following:</FieldLabel>
@@ -1037,7 +1148,10 @@ function VendorPanel({ data, reload }) {
           <div>
             <p className="text-xs font-bold uppercase tracking-wider opacity-70">Signed in as</p>
             <p className="font-display text-xl leading-tight">{session.name}</p>
-            <p className="text-xs opacity-60 mt-0.5">{session.email}</p>
+            {session.ownerName && (
+              <p className="text-xs opacity-80 mt-0.5">{session.ownerName}</p>
+            )}
+            <p className="text-xs opacity-60">{session.email}</p>
             <span className="inline-block mt-1.5 text-xs bg-white/20 rounded-full px-2.5 py-0.5 font-semibold">
               {session.vendorType}
             </span>
@@ -1059,7 +1173,8 @@ function VendorPanel({ data, reload }) {
         <button
           onClick={() => {
             setSession(null); setStep("login");
-            setFormName(""); setFormEmail(""); setFormType(""); setLookupEmail(""); setMsg(null);
+            setFormName(""); setFormOwnerName(""); setFormPhone("");
+            setFormEmail(""); setFormType(""); setLookupEmail(""); setMsg(null);
           }}
           className="mt-2 text-xs opacity-60 hover:opacity-100 underline"
         >
