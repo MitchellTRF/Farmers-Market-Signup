@@ -1183,6 +1183,7 @@ function VendorPanel({ data, reload }) {
             const waitlistPos = waitlist.findIndex((v) => v.email === session.email) + 1;
             const typeCap = data.typeLimits[session.vendorType];
             const typeCapHit = typeCap && getTypeConfirmedCount(m, session.vendorType) >= typeCap && !confirmedMe;
+          const atSeasonalLimit = session.limitEntry && getSignupCount(session.email) >= session.limitEntry.max_markets;
             const spotsLeft = m.capacity - confirmed.length;
 
             return (
@@ -1221,7 +1222,7 @@ function VendorPanel({ data, reload }) {
                         disabled={atLimit}
                         loading={saving}
                       >
-                        full || typeCapHit || atSeasonalLimit ? "Join Waitlist" : "Sign Up"
+                        {full || typeCapHit || atSeasonalLimit ? "Join Waitlist" : "Sign Up"}
                       </Btn>
                     )}
                     {(confirmedMe || onWaitlist) && (
