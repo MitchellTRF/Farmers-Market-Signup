@@ -1149,14 +1149,7 @@ function VendorPanel({ data, reload }) {
               {session.vendorType}
             </span>
           </div>
-          {limitEntry && (
-            <div className="text-right shrink-0">
-              <p className="text-xs opacity-70">Markets booked</p>
-              <p className={`text-2xl font-bold ${atLimit ? "text-yellow-300" : ""}`}>
-                {signupCount}/{limitEntry.max_markets}
-              </p>
-            </div>
-          )}
+          
         </div>
         
         <button
