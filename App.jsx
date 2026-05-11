@@ -10,6 +10,7 @@ const ADMIN_PASSWORD = "mcfm2026";
 const VENDOR_TYPES = [
   "Locally Grown Farm Product – Produce",
   "Locally Grown Farm Product – Meat",
+  "Coffee / Beverage",
   "Floral",
   "Value Added Items",
   "Bakery Goods",
