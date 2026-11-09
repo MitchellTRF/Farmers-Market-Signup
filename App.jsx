@@ -392,6 +392,48 @@ function AdminPanel({ data, reload, onLogout }) {
       setAdminMsg({ type: "success", text: note });
     });
 
+  // Copy a market's vendor emails to the clipboard as one comma-separated list,
+  // ready to paste into the BCC field of a new email.
+  const copyEmails = async (market, status) => {
+    const label = status === "confirmed" ? "confirmed" : "waitlisted";
+    const emails = [
+      ...new Set(
+        (market.signups || [])
+          .filter((s) => s.status === status)
+          .map((s) => (s.email || "").trim().toLowerCase())
+          .filter(Boolean)
+      ),
+    ];
+    if (emails.length === 0) {
+      setAdminMsg({ type: "error", marketId: market.id, text: `No ${label} vendor emails for this market.` });
+      return;
+    }
+    const text = emails.join(", ");
+    let copied = false;
+    try {
+      await navigator.clipboard.writeText(text);
+      copied = true;
+    } catch (e) {
+      try {
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        copied = document.execCommand("copy");
+        document.body.removeChild(ta);
+      } catch (e2) {
+        copied = false;
+      }
+    }
+    setAdminMsg({
+      type: copied ? "success" : "error",
+      marketId: market.id,
+      text: copied
+        ? `Copied ${emails.length} ${label} email${emails.length === 1 ? "" : "s"} for ${formatDate(market.date)}. Paste them into the BCC field so vendors don't see each other's addresses: ${text}`
+        : `Couldn't copy automatically. Select and copy these ${emails.length} ${label} emails: ${text}`,
+    });
+  };
+
   const removeSignup = (signupId) =>
     run(async () => {
       await supabase.from("signups").delete().eq("id", signupId);
@@ -642,11 +684,27 @@ function AdminPanel({ data, reload, onLogout }) {
               </div>
             )}
 
+            {adminMsg && adminMsg.marketId === m.id && (
+              <div className="break-words">
+                <MsgBanner msg={adminMsg} />
+              </div>
+            )}
+
             {/* Actions */}
             <div className="flex flex-wrap gap-2 pt-2 border-t border-[#e8dfc8]">
               {confirmed.length > 0 && (
                 <Btn variant="print" onClick={() => printMarketReport(m)}>
                   🖨 Print Check-In Sheet
+                </Btn>
+              )}
+              {confirmed.length > 0 && (
+                <Btn variant="ghost" onClick={() => copyEmails(m, "confirmed")}>
+                  📧 Copy Vendor Emails
+                </Btn>
+              )}
+              {!archived && waitlist.length > 0 && (
+                <Btn variant="ghost" onClick={() => copyEmails(m, "waitlist")}>
+                  📧 Copy Waitlist Emails
                 </Btn>
               )}
               {!archived && (
@@ -721,7 +779,7 @@ function AdminPanel({ data, reload, onLogout }) {
             </Btn>
           </Card>
 
-          <MsgBanner msg={adminMsg} />
+          <MsgBanner msg={adminMsg && !adminMsg.marketId ? adminMsg : null} />
 
           <div className="space-y-2">
             {data.markets.length === 0 && (
