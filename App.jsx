@@ -307,6 +307,7 @@ function AdminPanel({ data, reload, onLogout }) {
   const [saving, setSaving] = useState(false);
   const [showArchive, setShowArchive] = useState(false);
   const [expanded, setExpanded] = useState(null);
+  const [adminMsg, setAdminMsg] = useState(null);
 
   // Add market form
   const [newDate, setNewDate] = useState("");
@@ -361,27 +362,37 @@ function AdminPanel({ data, reload, onLogout }) {
       await supabase.from("signups").delete().eq("id", signupId);
     });
 
-  const promoteWaitlist = (market) =>
+  // Admin manually confirms a specific waitlisted vendor.
+  // This is a deliberate admin override: it ignores type caps and seasonal
+  // vendor limits, and only refuses if the market itself has no open spots.
+  const promoteWaitlist = (market, vendor) =>
     run(async () => {
-      const signups = market.signups || [];
-      const confirmed = signups.filter((s) => s.status === "confirmed");
-      const waitlist = signups
-        .filter((s) => s.status === "waitlist")
-        .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+      setAdminMsg(null);
+      const confirmedCount = (market.signups || []).filter((s) => s.status === "confirmed").length;
 
-      if (confirmed.length >= market.capacity || waitlist.length === 0) return;
+      if (confirmedCount >= market.capacity) {
+        setAdminMsg({
+          type: "error",
+          text: `${formatDate(market.date)} is at capacity (${confirmedCount}/${market.capacity}). Raise the capacity or remove a vendor first.`,
+        });
+        return;
+      }
 
-      const eligible = waitlist.find((v) => {
-        const cap = data.typeLimits[v.vendor_type];
-        if (!cap) return true;
-        return confirmed.filter((c) => c.vendor_type === v.vendor_type).length < cap;
-      });
-      if (!eligible) return;
+      const { error } = await supabase
+        .from("signups")
+        .update({ status: "confirmed" })
+        .eq("id", vendor.id);
 
-      await supabase.from("signups").update({ status: "confirmed" }).eq("id", eligible.id);
+      if (error) {
+        console.error(error);
+        setAdminMsg({ type: "error", text: `Couldn't promote ${vendor.name}: ${error.message}` });
+        return;
+      }
+
       await logNotification(
-        `🎉 ${eligible.name} (${eligible.vendor_type}) promoted to confirmed for ${formatDate(market.date)}.`
+        `🎉 ${vendor.name} (${vendor.vendor_type}) promoted to confirmed for ${formatDate(market.date)}.`
       );
+      setAdminMsg({ type: "success", text: `${vendor.name} is now confirmed for ${formatDate(market.date)}.` });
     });
 
   // ── Vendor limit operations ──
@@ -549,7 +560,7 @@ function AdminPanel({ data, reload, onLogout }) {
                     >
                       <div className="flex items-center gap-2">
                         <span className="text-[#c17f24] font-bold text-sm shrink-0">#{i + 1}</span>
-                        <div>
+                        <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-[#2a2010]">{v.name}</p>
                           <p className="text-xs text-[#8a7a60]">
                             {v.owner_name && <span>{v.owner_name} · </span>}
@@ -557,20 +568,18 @@ function AdminPanel({ data, reload, onLogout }) {
                             {v.vendor_type}
                           </p>
                         </div>
+                        <Btn
+                          variant="secondary"
+                          className="shrink-0 !px-3 !py-1 text-xs"
+                          disabled={saving}
+                          onClick={() => promoteWaitlist(m, v)}
+                        >
+                          Confirm
+                        </Btn>
                       </div>
                     </div>
                   ))}
                 </div>
-                {confirmed.length < m.capacity && (
-                  <Btn
-                    variant="secondary"
-                    className="w-full"
-                    loading={saving}
-                    onClick={() => promoteWaitlist(m)}
-                  >
-                    Promote #1 from Waitlist
-                  </Btn>
-                )}
               </div>
             )}
 
@@ -652,6 +661,8 @@ function AdminPanel({ data, reload, onLogout }) {
               + Add Market Date
             </Btn>
           </Card>
+
+          <MsgBanner msg={adminMsg} />
 
           <div className="space-y-2">
             {data.markets.length === 0 && (
