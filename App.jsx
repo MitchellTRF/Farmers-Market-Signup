@@ -357,6 +357,41 @@ function AdminPanel({ data, reload, onLogout }) {
       setExpanded(null);
     });
 
+  // Change a market's vendor capacity after it has been created.
+  // Existing confirmed vendors are never bumped if capacity is lowered below
+  // the current confirmed count; the market just stops accepting new spots.
+  const updateCapacity = (market, rawValue) =>
+    run(async () => {
+      setAdminMsg(null);
+      const newCapacity = parseInt(rawValue, 10);
+      if (!Number.isFinite(newCapacity) || newCapacity < 1) {
+        setAdminMsg({ type: "error", text: "Capacity must be a whole number of 1 or more." });
+        return;
+      }
+      if (newCapacity === market.capacity) return;
+
+      const { error } = await supabase
+        .from("markets")
+        .update({ capacity: newCapacity })
+        .eq("id", market.id);
+
+      if (error) {
+        console.error(error);
+        setAdminMsg({ type: "error", text: `Couldn't update capacity: ${error.message}` });
+        return;
+      }
+
+      const confirmedCount = (market.signups || []).filter((s) => s.status === "confirmed").length;
+      const waitingCount = (market.signups || []).filter((s) => s.status === "waitlist").length;
+      let note = `${formatDate(market.date)} capacity is now ${newCapacity}.`;
+      if (newCapacity < confirmedCount) {
+        note += ` ${confirmedCount} vendors are already confirmed, so they all keep their spots and no new vendors can be confirmed.`;
+      } else if (newCapacity > market.capacity && waitingCount > 0) {
+        note += ` ${waitingCount} vendor(s) on the waitlist are not moved up automatically. Use Confirm on the waitlist to add them.`;
+      }
+      setAdminMsg({ type: "success", text: note });
+    });
+
   const removeSignup = (signupId) =>
     run(async () => {
       await supabase.from("signups").delete().eq("id", signupId);
@@ -483,6 +518,30 @@ function AdminPanel({ data, reload, onLogout }) {
 
         {exp && (
           <div className="border-t border-[#e8dfc8] p-4 space-y-4 bg-[#fdfaf3]">
+            {/* Edit capacity */}
+            {!archived && (
+              <div className="flex items-center gap-3">
+                <label className="text-xs font-bold text-[#5a5040] uppercase tracking-wider">
+                  Vendor capacity
+                </label>
+                <input
+                  key={`cap-${m.id}-${m.capacity}`}
+                  type="number"
+                  min="1"
+                  defaultValue={m.capacity}
+                  disabled={saving}
+                  onBlur={(e) => {
+                    if (e.target.value !== String(m.capacity)) updateCapacity(m, e.target.value);
+                  }}
+                  onKeyDown={(e) => { if (e.key === "Enter") e.target.blur(); }}
+                  className="w-20 bg-white border border-[#c8b98a] rounded-lg px-2 py-1 text-sm text-center focus:outline-none focus:border-[#3a6b35]"
+                />
+                <span className="text-xs text-[#8a7a60]">
+                  {confirmed.length} confirmed · saves when you press Enter or click away
+                </span>
+              </div>
+            )}
+
             {/* Type breakdown badges */}
             {Object.keys(typeCounts).length > 0 && (
               <div className="flex flex-wrap gap-1.5">
